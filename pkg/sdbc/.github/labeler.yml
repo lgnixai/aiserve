@@ -1,0 +1,25 @@
+# Labeler Config
+
+cc | build:
+  - changed-files:
+    - any-glob-to-any-file:
+      - go.mod
+      - go.sum
+
+cc | ci:
+  - changed-files:
+    - any-glob-to-any-file:
+      - .github/**/*
+
+cc | docs:
+  - changed-files:
+      - any-glob-to-any-file:
+        - README.md
+        - docs/**/*
+
+cc | test:
+  - changed-files:
+    - any-glob-to-any-file:
+      - ./**/*_test.go
+
+# chore | feat | fix | perf | refactor | revert | style

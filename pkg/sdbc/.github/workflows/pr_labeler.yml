@@ -1,0 +1,23 @@
+name: Pull Request Labeler
+
+on: pull_request_target
+
+jobs:
+
+  update:
+    name: Update
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/labeler.yml
+
+      - uses: actions/labeler@v5
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          sync-labels: true

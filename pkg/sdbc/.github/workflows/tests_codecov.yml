@@ -1,0 +1,39 @@
+name: tests
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: ASDF Environment
+        id: asdf
+        uses: smartcontractkit/tool-versions-to-env-action@v1.0.8
+        with:
+          path_to_tool_versions: "./.tool-versions"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ steps.asdf.outputs.golang_version }}
+          check-latest: true
+
+      - name: Check Go Version
+        run: go version
+
+      - name: Test
+        working-directory: .
+        run: go test -race -coverprofile=coverage.txt -covermode=atomic -v ./...
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

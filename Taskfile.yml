@@ -1,0 +1,56 @@
+# https://taskfile.dev
+
+version: "3"
+
+vars:
+  REPOSITORY: adrianliechti/llama-platform
+interval: 500ms
+
+includes:
+
+  
+  weaviate:
+    taskfile: ./Taskfile.weaviate.yml
+
+tasks:
+  start:
+    dotenv: [ '.env' ]
+    desc: Builds the Go application
+
+    cmds:
+      - scripts/start.sh
+  run:
+    cmds:
+      - task surrealdb
+      - task drant
+  server:
+    dotenv: ['.env' ]
+    desc: Builds the Go application
+    watch: true
+    sources:
+        - '**/*.go'
+    cmds:
+      - go run main.go
+  drant:
+    dotenv: ['.env' ]
+
+    cmds:
+      - docker run -p 6333:6333 qdrant/qdrant
+
+
+  surrealdb:
+      cmds:
+        - surreal start --log trace --user root --pass root --bind 0.0.0.0:9876 file://ai/notedb
+      silent: true
+
+  milvus:
+      cmds:
+        - ./standalone_embed.sh
+      silent: true
+
+  ui:
+      cmds:
+        - docker run -p 8000:3000 -e MILVUS_URL=http://milvus-standalone.orb.local:19530 zilliz/attu:v2.3.10
+
+
+

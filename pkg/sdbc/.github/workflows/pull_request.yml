@@ -1,0 +1,117 @@
+name: PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - ".github/workflows/pull_request.yml"
+      - ".envrc"
+      - ".golangci.yml"
+      - ".tool-versions"
+      - "go.mod"
+      - "go.sum"
+      - "**/*.go"
+
+jobs:
+
+  sync:
+    name: Sync
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: ASDF Environment
+        id: asdf
+        uses: smartcontractkit/tool-versions-to-env-action@v1.0.8
+        with:
+          path_to_tool_versions: "./.tool-versions"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ steps.asdf.outputs.golang_version }}
+          check-latest: true
+
+      - name: Check Go Version
+        run: go version
+
+      - name: Sync
+        working-directory: .
+        run: go mod download
+
+      - name: Commit Changes
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "Apply dependency sync"
+          branch: ${{ github.head_ref }}
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: ASDF Environment
+        id: asdf
+        uses: smartcontractkit/tool-versions-to-env-action@v1.0.8
+        with:
+          path_to_tool_versions: "./.tool-versions"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ steps.asdf.outputs.golang_version }}
+          check-latest: true
+
+      - name: Check Go Version
+        run: go version
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: "v${{ steps.asdf.outputs.golangci-lint_version }}"
+          working-directory: .
+          args: --path-prefix=. --go ${{ steps.asdf.outputs.golang_version }} --timeout 5m
+
+      - name: Commit Changes
+        uses: stefanzweifel/git-auto-commit-action@v4
+        if: always()
+        with:
+          commit_message: "Apply golangci-lint auto-fix changes"
+          branch: ${{ github.head_ref }}
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: ASDF Environment
+        id: asdf
+        uses: smartcontractkit/tool-versions-to-env-action@v1.0.8
+        with:
+          path_to_tool_versions: "./.tool-versions"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ steps.asdf.outputs.golang_version }}
+          check-latest: true
+
+      - name: Check Go Version
+        run: go version
+
+      - name: Test
+        working-directory: .
+        run: go test -race -coverprofile=coverage.txt -covermode=atomic -v ./...
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
