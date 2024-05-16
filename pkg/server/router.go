@@ -55,9 +55,14 @@ func (s *Server) RegisterRouter() *gin.Engine {
 
 	rr := router.Group("/rss/v1")
 	rr.GET("/feeds", s.FeedList)
+	rr.GET("/feeds/items", s.FeedItemList)
 
 	rr.POST("/feeds", s.FeedAdd)
 	rr.POST("/opml/import", s.OPMLImport)
+
+	note := router.Group("/note/v1")
+	note.GET("/notes", s.NoteTree)
+
 	//r.For("/opml/import", s.handleOPMLImport)
 	//r.For("/opml/export", s.handleOPMLExport)
 	return router

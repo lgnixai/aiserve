@@ -91,6 +91,7 @@ func (s *Server) Start() {
 		log.Fatal(err)
 	}
 	router.StaticFS("/web", http.FS(subFS))
+	router.Static("/static", "./data/icon")
 
 	if s.CertFile != "" && s.KeyFile != "" {
 		_ = endless.ListenAndServeTLS(s.Host+":"+s.Addr, s.CertFile, s.KeyFile, router)

@@ -1,13 +1,16 @@
 package worker
 
 import (
+	`fmt`
 	"log"
 	"sync"
+	`sync/atomic`
 	"time"
+
+	`github.com/spf13/afero`
 
 	database `aurora/pkg/db`
 	`aurora/pkg/model`
-	`aurora/pkg/storage`
 )
 
 const NUM_WORKERS = 4
@@ -41,8 +44,11 @@ func (w *Worker) StartFeedCleaner() {
 }
 
 func (w *Worker) FindFavicons() {
+
+	//fmt.Println(len(w.db.ListFeedsMissingIcons()))
 	go func() {
 		for _, feed := range w.db.ListFeedsMissingIcons() {
+			fmt.Println(feed)
 			w.FindFeedFavicon(feed)
 		}
 	}()
@@ -50,10 +56,18 @@ func (w *Worker) FindFavicons() {
 
 func (w *Worker) FindFeedFavicon(feed model.Feed) {
 	icon, err := findFavicon(feed.Link, feed.FeedLink)
+	fmt.Println("icon, err")
+	fmt.Println(icon, err)
+	appfs := afero.NewOsFs()
+	appfs.MkdirAll("data/icon", 0755)
+	afero.WriteFile(appfs, fmt.Sprintf("data/icon/%s.ico", feed.Id), *icon, 0644)
+	//err = ioutil.WriteFile("data/"+feed.Id+".icon", *icon, 0644)
+	//fmt.Println("err", err, "data/"+feed.Id+".icon")
+
 	if err != nil {
 		log.Printf("Failed to find favicon for %s (%s): %s", feed.FeedLink, feed.Link, err)
 	}
-	feed.Icon = icon
+	feed.Icon = fmt.Sprintf("data/icon/%s.ico", feed.Id)
 	if icon != nil {
 		w.db.UpdateFeedIcon(feed)
 	}
@@ -90,59 +104,61 @@ func (w *Worker) SetRefreshRate(minute int64) {
 }
 
 func (w *Worker) RefreshFeeds() {
-	//w.reflock.Lock()
-	//defer w.reflock.Unlock()
-	//
-	//if *w.pending > 0 {
-	//	log.Print("Refreshing already in progress")
-	//	return
-	//}
-	//
-	//feeds := w.db.ListFeeds()
-	//if len(feeds) == 0 {
-	//	log.Print("Nothing to refresh")
-	//	return
-	//}
-	//
-	//log.Print("Refreshing feeds")
-	//atomic.StoreInt32(w.pending, int32(len(feeds)))
-	//go w.refresher(feeds)
+	w.reflock.Lock()
+	defer w.reflock.Unlock()
+
+	if *w.pending > 0 {
+		log.Print("Refreshing already in progress")
+		return
+	}
+
+	feeds := w.db.ListFeeds()
+	if len(feeds) == 0 {
+		log.Print("Nothing to refresh")
+		return
+	}
+
+	log.Print("Refreshing feeds")
+	atomic.StoreInt32(w.pending, int32(len(feeds)))
+	go w.refresher(feeds)
 }
 
-func (w *Worker) refresher(feeds []storage.Feed) {
+func (w *Worker) refresher(feeds []model.Feed) {
 	//w.db.ResetFeedErrors()
-	//
-	//srcqueue := make(chan storage.Feed, len(feeds))
-	//dstqueue := make(chan []storage.Item)
-	//
-	//for i := 0; i < NUM_WORKERS; i++ {
-	//	go w.worker(srcqueue, dstqueue)
-	//}
-	//
-	//for _, feed := range feeds {
-	//	srcqueue <- feed
-	//}
-	//for i := 0; i < len(feeds); i++ {
-	//	items := <-dstqueue
-	//	if len(items) > 0 {
-	//		w.db.CreateItems(items)
-	//		//w.db.SetFeedSize(items[0].FeedId, len(items))
-	//	}
-	//	atomic.AddInt32(w.pending, -1)
-	//	w.db.SyncSearch()
-	//}
-	//close(srcqueue)
-	//close(dstqueue)
-	//
-	//log.Printf("Finished refreshing %d feeds", len(feeds))
+
+	srcqueue := make(chan model.Feed, len(feeds))
+	dstqueue := make(chan []model.Item)
+
+	for i := 0; i < NUM_WORKERS; i++ {
+		go w.worker(srcqueue, dstqueue)
+	}
+
+	for _, feed := range feeds {
+		srcqueue <- feed
+	}
+	for i := 0; i < len(feeds); i++ {
+		items := <-dstqueue
+
+		fmt.Println("======", len(items))
+		if len(items) > 0 {
+			w.db.CreateItems(items)
+			//w.db.SetFeedSize(items[0].FeedId, len(items))
+		}
+		atomic.AddInt32(w.pending, -1)
+		//w.db.SyncSearch()
+	}
+	close(srcqueue)
+	close(dstqueue)
+
+	log.Printf("Finished refreshing %d feeds", len(feeds))
 }
 
-func (w *Worker) worker(srcqueue <-chan storage.Feed, dstqueue chan<- []storage.Item) {
-	//for feed := range srcqueue {
-	//	items, err := listItems(feed, w.db)
-	//	if err != nil {
-	//		w.db.SetFeedError(feed.Id, err)
-	//	}
-	//	dstqueue <- items
-	//}
+func (w *Worker) worker(srcqueue <-chan model.Feed, dstqueue chan<- []model.Item) {
+	for feed := range srcqueue {
+		items, err := listItems(feed, w.db)
+		if err != nil {
+			//w.db.SetFeedError(feed.Id, err)
+		}
+		dstqueue <- items
+	}
 }

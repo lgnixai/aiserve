@@ -14,6 +14,7 @@ import (
 	"golang.org/x/net/html/charset"
 
 	`aurora/pkg/content/scraper`
+	database `aurora/pkg/db`
 	`aurora/pkg/model`
 	`aurora/pkg/parser`
 )
@@ -100,7 +101,7 @@ func findFavicon(siteUrl, feedUrl string) (*[]byte, error) {
 		}
 		return fmt.Sprintf("%s://%s/favicon.ico", u.Scheme, u.Host)
 	}
-
+	fmt.Println(siteUrl, favicon(siteUrl))
 	if siteUrl != "" {
 		if res, err := client.get(siteUrl); err == nil {
 			defer res.Body.Close()
@@ -140,7 +141,7 @@ func findFavicon(siteUrl, feedUrl string) (*[]byte, error) {
 	return &emptyIcon, nil
 }
 
-func ConvertItems(items []parser.Item, feed map[string]interface{}) []model.Item {
+func ConvertItems(items []parser.Item, feed_id string) []model.Item {
 	result := make([]model.Item, len(items))
 	for i, item := range items {
 		item := item
@@ -154,7 +155,7 @@ func ConvertItems(items []parser.Item, feed map[string]interface{}) []model.Item
 		}
 		result[i] = model.Item{
 			GUID:     item.GUID,
-			FeedId:   feed["id"].(string),
+			FeedId:   feed_id,
 			Title:    item.Title,
 			Link:     item.URL,
 			Content:  item.Content,
@@ -168,43 +169,43 @@ func ConvertItems(items []parser.Item, feed map[string]interface{}) []model.Item
 }
 
 //
-//func listItems(f storage.Feed, db *storage.Storage) ([]storage.Item, error) {
-//	lmod := ""
-//	etag := ""
-//	if state := db.GetHTTPState(f.Id); state != nil {
-//		lmod = state.LastModified
-//		etag = state.Etag
-//	}
-//
-//	res, err := client.getConditional(f.FeedLink, lmod, etag)
-//	if err != nil {
-//		return nil, err
-//	}
-//	defer res.Body.Close()
-//
-//	switch {
-//	case res.StatusCode < 200 || res.StatusCode > 399:
-//		if res.StatusCode == 404 {
-//			return nil, fmt.Errorf("feed not found")
-//		}
-//		return nil, fmt.Errorf("status code %d", res.StatusCode)
-//	case res.StatusCode == http.StatusNotModified:
-//		return nil, nil
-//	}
-//
-//	feed, err := parser.ParseAndFix(res.Body, f.FeedLink, getCharset(res))
-//	if err != nil {
-//		return nil, err
-//	}
-//	fmt.Println(feed)
-//	lmod = res.Header.Get("Last-Modified")
-//	etag = res.Header.Get("Etag")
-//	if lmod != "" || etag != "" {
-//		db.SetHTTPState(f.Id, lmod, etag)
-//	}
-//	return nil, nil
-//	//return ConvertItems(feed.Items, f), nil
-//}
+func listItems(f model.Feed, db *database.Database) ([]model.Item, error) {
+	lmod := ""
+	etag := ""
+	//if state := db.GetHTTPState(f.Id); state != nil {
+	//	lmod = state.LastModified
+	//	etag = state.Etag
+	//}
+
+	res, err := client.getConditional(f.FeedLink, lmod, etag)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	switch {
+	case res.StatusCode < 200 || res.StatusCode > 399:
+		if res.StatusCode == 404 {
+			return nil, fmt.Errorf("feed not found")
+		}
+		return nil, fmt.Errorf("status code %d", res.StatusCode)
+	case res.StatusCode == http.StatusNotModified:
+		return nil, nil
+	}
+
+	feed, err := parser.ParseAndFix(res.Body, f.FeedLink, getCharset(res))
+	if err != nil {
+		return nil, err
+	}
+
+	lmod = res.Header.Get("Last-Modified")
+	etag = res.Header.Get("Etag")
+	if lmod != "" || etag != "" {
+		//db.SetHTTPState(f.Id, lmod, etag)
+	}
+	//return nil, nil
+	return ConvertItems(feed.Items, f.Id), nil
+}
 
 func getCharset(res *http.Response) string {
 	contentType := res.Header.Get("Content-Type")

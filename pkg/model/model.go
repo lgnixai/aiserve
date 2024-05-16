@@ -6,15 +6,15 @@ import (
 )
 
 type Feed struct {
-	Id          string  `json:"id,omitempty"`
-	FolderId    *int64  `json:"folder_id"`
-	Title       string  `json:"title"`
-	Description string  `json:"description"`
-	Link        string  `json:"link"`
-	FeedLink    string  `json:"feed_link"`
-	Icon        *[]byte `json:"icon,omitempty"`
-	HasIcon     bool    `json:"has_icon"`
-	Size        int64   `json:"size"`
+	Id          string `json:"id,omitempty"`
+	FolderId    *int64 `json:"folder_id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Link        string `json:"link"`
+	FeedLink    string `json:"feed_link"`
+	Icon        string `json:"icon"`
+	HasIcon     bool   `json:"has_icon"`
+	Size        int64  `json:"size"`
 }
 
 type ItemStatus int

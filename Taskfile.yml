@@ -43,6 +43,11 @@ tasks:
         - surreal start --log trace --user root --pass root --bind 0.0.0.0:9876 file://ai/notedb
       silent: true
 
+  keck:
+      cmds:
+        - ./keck file://ai/notedb
+      silent: true
+
   milvus:
       cmds:
         - ./standalone_embed.sh
